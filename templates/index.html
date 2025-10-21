@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exchange Rate Visualizer</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen text-white">
+    <div x-data="exchangeApp()" class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full mb-6 shadow-2xl">
+                <i class="fas fa-chart-line text-2xl text-white"></i>
+            </div>
+            <h1 class="text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent mb-4">
+                Exchange Rate Visualizer
+            </h1>
+            <p class="text-xl text-gray-300 italic">
+                "Coins alone do not tell the story; show me the pattern and the change."
+            </p>
+        </header>
+
+        <!-- Controls Panel -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 mb-8 border border-white/20 shadow-2xl">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-calendar-alt mr-2"></i>Start Date
+                    </label>
+                    <input type="date" x-model="startDate"
+                           class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           style="color: black !important; background: rgba(0, 0, 255, 0.1) !important;">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-calendar-alt mr-2"></i>End Date
+                    </label>
+                    <input type="date" x-model="endDate"
+                           class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           style="color: black !important; background: rgba(0, 0, 255, 0.1) !important;">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-dollar-sign mr-2"></i>From
+                    </label>
+                    <select x-model="fromCurrency"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            style="color: black !important; background: rgba(255, 255, 255, 0.1) !important;">
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="JPY">JPY</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-exchange-alt mr-2"></i>To
+                    </label>
+                    <select x-model="toCurrency"
+                            class="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            style="color: black !important; background: rgba(255, 255, 255, 0.1) !important;">
+                        <option value="EUR">EUR</option>
+                        <option value="USD">USD</option>
+                        <option value="GBP">GBP</option>
+                        <option value="JPY">JPY</option>
+                    </select>
+                </div>
+                <div>
+                    <button @click="fetchData()" :disabled="loading"
+                            class="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg">
+                        <span x-show="!loading" class="flex items-center justify-center">
+                            <i class="fas fa-chart-line mr-2"></i>Update
+                        </span>
+                        <span x-show="loading" class="flex items-center justify-center">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Loading...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Alert -->
+        <div x-show="error" x-transition class="bg-red-500/20 border border-red-500/50 rounded-lg p-4 mb-8">
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-triangle text-red-400 mr-3"></i>
+                <span x-text="error" class="text-red-200"></span>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div x-show="data" x-transition class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-gradient-to-br from-green-500/20 to-emerald-600/20 backdrop-blur-lg rounded-xl p-6 border border-green-500/30">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-green-300 text-sm font-medium">Start Rate</p>
+                        <p class="text-2xl font-bold text-white" x-text="data?.totals?.start_rate?.toFixed(5)"></p>
+                    </div>
+                    <i class="fas fa-play text-green-400 text-2xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-blue-500/20 to-cyan-600/20 backdrop-blur-lg rounded-xl p-6 border border-blue-500/30">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-blue-300 text-sm font-medium">End Rate</p>
+                        <p class="text-2xl font-bold text-white" x-text="data?.totals?.end_rate?.toFixed(5)"></p>
+                    </div>
+                    <i class="fas fa-stop text-blue-400 text-2xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-purple-500/20 to-pink-600/20 backdrop-blur-lg rounded-xl p-6 border border-purple-500/30">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-purple-300 text-sm font-medium">Total Change</p>
+                        <p class="text-2xl font-bold"
+                           :class="data?.totals?.total_pct_change >= 0 ? 'text-green-400' : 'text-red-400'"
+                           x-text="data?.totals?.total_pct_change?.toFixed(2) + '%'"></p>
+                    </div>
+                    <i class="fas fa-chart-line text-purple-400 text-2xl"></i>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-orange-500/20 to-red-600/20 backdrop-blur-lg rounded-xl p-6 border border-orange-500/30">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-orange-300 text-sm font-medium">Mean Rate</p>
+                        <p class="text-2xl font-bold text-white" x-text="data?.totals?.mean_rate?.toFixed(5)"></p>
+                    </div>
+                    <i class="fas fa-calculator text-orange-400 text-2xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div x-show="data" x-transition class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Rate Chart -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                <h3 class="text-xl font-semibold mb-4 flex items-center">
+                    <i class="fas fa-chart-area mr-3 text-blue-400"></i>
+                    Exchange Rate Trend
+                </h3>
+                <div class="relative h-80">
+                    <canvas id="rateChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Change Chart -->
+            <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+                <h3 class="text-xl font-semibold mb-4 flex items-center">
+                    <i class="fas fa-chart-bar mr-3 text-purple-400"></i>
+                    Daily Changes
+                </h3>
+                <div class="relative h-80">
+                    <canvas id="changeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div x-show="data" x-transition class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+            <h3 class="text-xl font-semibold mb-4 flex items-center">
+                <i class="fas fa-table mr-3 text-green-400"></i>
+                Daily Data
+            </h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b border-white/20">
+                            <th class="pb-3 text-gray-300">Date</th>
+                            <th class="pb-3 text-gray-300">Rate</th>
+                            <th class="pb-3 text-gray-300">Change (%)</th>
+                            <th class="pb-3 text-gray-300">Trend</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(item, index) in data?.labels" :key="index">
+                            <tr class="border-b border-white/10">
+                                <td class="py-3 text-gray-200" x-text="item"></td>
+                                <td class="py-3 text-white font-mono" x-text="data.rates[index]?.toFixed(5)"></td>
+                                <td class="py-3 font-semibold"
+                                    :class="data.changes[index] >= 0 ? 'text-green-400' : 'text-red-400'"
+                                    x-text="data.changes[index]?.toFixed(2) + '%'"></td>
+                                <td class="py-3">
+                                    <i :class="data.changes[index] >= 0 ? 'fas fa-arrow-up text-green-400' : 'fas fa-arrow-down text-red-400'"></i>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center mt-16 py-8 border-t border-white/20">
+            <div class="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full mb-4">
+                <i class="fas fa-candle-holder text-white"></i>
+            </div>
+            <p class="text-gray-400 text-sm">
+                🕯️ A candle by the door for those who seek patterns in numbers 🕯️
+            </p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

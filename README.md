@@ -30,7 +30,9 @@ pip install -r requirements.txt
 ```
 
 ### Running the Service
-
+```- 
+- add your EXCHANGE API KEY TO THE ENV or Replace it in the app.py initialization.
+```  
 ```bash
 python app.py
 ```
